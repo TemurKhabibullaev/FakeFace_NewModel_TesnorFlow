@@ -1,4 +1,5 @@
 import os, pathlib
+import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow.python.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
@@ -11,11 +12,12 @@ from tensorflow.keras.layers import Dropout, GlobalAveragePooling2D, Dense, Batc
 realFaces = pathlib.Path.cwd().parent /"FakeFace_NewModel_TesnorFlow" / "real_and_fake_face" / "training_real"
 fakeFaces = pathlib.Path.cwd().parent /"FakeFace_NewModel_TesnorFlow" / "real_and_fake_face" / "training_fake"
 realFacesPath, fakeFacesPath = os.listdir(realFaces), os.listdir(fakeFaces)
-datasetPath = pathlib.Path.cwd().parent /"FakeFace_NewModel_TesnorFlow" / "real_and_fake_face"
+dataPath = pathlib.Path.cwd().parent / "FakeFace_NewModel_TesnorFlow" / "real_and_fake_face"
 
 # For training purposes we transform, rescale images
 transformImages = ImageDataGenerator(horizontal_flip=True, vertical_flip=False, rescale=1. / 255, validation_split=0.2)
-train = transformImages.flow_from_directory(datasetPath, class_mode="binary", target_size=(96, 96), batch_size=32, subset="training")
+train = transformImages.flow_from_directory(dataPath, class_mode="binary", target_size=(96, 96), batch_size=32, subset="training")
+validate = transformImages.flow_from_directory(dataPath, class_mode="binary", target_size=(96, 96), batch_size=32, subset="validation")
 
 # We use mobileNetV2 library to extract features from image, in previous model we used 64 X 64 shape for image
 # here we use 94 X 94 for a better performance
@@ -39,7 +41,30 @@ def trainingProcess(epoch):
 # Learning Rate callbakcs
 lrCallbacks = tf.keras.callbacks.LearningRateScheduler(trainingProcess)
 # we can choose # of epochs to run
-model.fit_generator(train, epochs=20, callbacks=[lrCallbacks])
-# First value in model evaluation is train loss and second is accuracy
-print(model.evaluate(train))
-model.save("trainedModel.h5")
+storedModel = model.fit_generator(train, epochs=20, callbacks=[lrCallbacks], validation_data=validate)
+
+validationLoss, trainLoss = storedModel.history['val_loss'], storedModel.history['loss']
+validationAccuracy, trainAccuracy = storedModel.history['val_accuracy'], storedModel.history['accuracy']
+
+
+# Plot the figures
+axisLength = range(20)
+plt.figure()
+plt.plot(axisLength, trainLoss)
+plt.plot(axisLength, validationLoss)
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.title('Train loss and Validation loss')
+plt.grid(True)
+plt.legend(['Trained', 'Validation'])
+plt.show()
+
+plt.figure()
+plt.plot(axisLength, trainAccuracy)
+plt.plot(axisLength, validationAccuracy)
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.title('Train accuracy and Validation accuracy')
+plt.grid(True)
+plt.legend(['Train', 'Validation'], loc=4)
+plt.show()
